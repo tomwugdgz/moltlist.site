@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Star, Zap, Shield, Activity, ExternalLink, RefreshCw, Cpu, User, Bot, LogIn, X, Mail, Twitter, Github } from 'lucide-react';
+import { Search, Star, Zap, Shield, Activity, ExternalLink, RefreshCw, Cpu, User, Bot, LogIn, X, Mail, Twitter, Github, ChevronDown, FileCode, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface MCPServer {
@@ -14,11 +14,20 @@ interface MCPServer {
   last_checked: string;
   ai_review?: string;
   verified_by: 'Human' | 'AI';
+  wallet_address?: string;
+  is_premium: number;
+  fee_type: 'free' | 'gas_fee';
+  interface_file?: string;
+  usage_instructions?: string;
 }
 
 export default function App() {
   const [query, setQuery] = useState('');
   const [registerUrl, setRegisterUrl] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [interfaceFile, setInterfaceFile] = useState('');
+  const [usageInstructions, setUsageInstructions] = useState('');
+  const [feeType, setFeeType] = useState<'free' | 'gas_fee'>('free');
   const [minStars, setMinStars] = useState(0);
   const [activeTab, setActiveTab] = useState<'Human' | 'AI'>('AI');
   const [servers, setServers] = useState<MCPServer[]>([]);
@@ -59,10 +68,19 @@ export default function App() {
       const res = await fetch('/api/register-mcp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: registerUrl })
+        body: JSON.stringify({ 
+          url: registerUrl,
+          walletAddress,
+          feeType,
+          interfaceFile,
+          usageInstructions
+        })
       });
       if (res.ok) {
         setRegisterUrl('');
+        setWalletAddress('');
+        setInterfaceFile('');
+        setUsageInstructions('');
         fetchServers(query, minStars, activeTab);
       }
     } finally {
@@ -138,24 +156,90 @@ export default function App() {
 
         <div className="w-full max-w-3xl space-y-6">
           {/* Registration Form */}
-          <form onSubmit={handleRegisterMCP} className="relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+          <form onSubmit={handleRegisterMCP} className="bg-white border border-blue-100 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-2 mb-2">
               <Zap className="w-5 h-5 text-blue-500" />
+              <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400">Register Agent Interface</h2>
             </div>
-            <input
-              type="url"
-              value={registerUrl}
-              onChange={(e) => setRegisterUrl(e.target.value)}
-              placeholder="Register your MCP URL (e.g., https://api.example.com/mcp)..."
-              className="w-full py-4 pl-12 pr-32 bg-white border border-blue-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-lg"
-            />
-            <button 
-              type="submit"
-              disabled={isRegistering}
-              className="absolute right-2 top-2 bottom-2 px-6 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all disabled:bg-gray-400 flex items-center gap-2"
-            >
-              {isRegistering ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Register'}
-            </button>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Documentation URL</label>
+                <input
+                  required
+                  type="url"
+                  value={registerUrl}
+                  onChange={(e) => setRegisterUrl(e.target.value)}
+                  placeholder="https://api.example.com/mcp"
+                  className="w-full py-2.5 px-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Crypto Wallet (Optional)</label>
+                <input
+                  type="text"
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  placeholder="0x... or payment link"
+                  className="w-full py-2.5 px-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Interface File (OpenAPI/MCP)</label>
+                <input
+                  type="url"
+                  value={interfaceFile}
+                  onChange={(e) => setInterfaceFile(e.target.value)}
+                  placeholder="https://api.example.com/openapi.json"
+                  className="w-full py-2.5 px-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Usage Instructions</label>
+                <input
+                  type="text"
+                  value={usageInstructions}
+                  onChange={(e) => setUsageInstructions(e.target.value)}
+                  placeholder="e.g. Call GET /search with 'q' param"
+                  className="w-full py-2.5 px-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input 
+                    type="radio" 
+                    name="feeType" 
+                    value="free" 
+                    checked={feeType === 'free'}
+                    onChange={() => setFeeType('free')}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs font-bold text-gray-600 group-hover:text-blue-600 transition-colors">Free Tier</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input 
+                    type="radio" 
+                    name="feeType" 
+                    value="gas_fee" 
+                    checked={feeType === 'gas_fee'}
+                    onChange={() => setFeeType('gas_fee')}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs font-bold text-gray-600 group-hover:text-blue-600 transition-colors">Premium (0.01% Gas Fee)</span>
+                </label>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={isRegistering}
+                className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:bg-gray-400 flex items-center gap-2 shadow-lg shadow-blue-500/20"
+              >
+                {isRegistering ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Deploy to Network'}
+              </button>
+            </div>
           </form>
 
           {/* Search Form */}
@@ -168,7 +252,7 @@ export default function App() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search indexed agents..."
-              className="w-full py-3 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all text-base"
+              className="w-full py-3.5 pl-12 pr-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-base"
             />
             
             <div className="mt-6 flex flex-wrap justify-center items-center gap-6">
@@ -253,6 +337,15 @@ export default function App() {
                       <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500">
                         {server.verified_by} Verified
                       </span>
+                      {server.is_premium === 1 && (
+                        <>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 flex items-center gap-1">
+                            <Zap className="w-2.5 h-2.5 fill-current" />
+                            Premium
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <a 
@@ -278,6 +371,27 @@ export default function App() {
                         <Activity className="w-3 h-3" />
                         {server.quota_info}
                       </div>
+                      {server.fee_type === 'gas_fee' && (
+                        <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                          Fee: 0.01% Gas
+                        </div>
+                      )}
+                      {server.interface_file && (
+                        <a 
+                          href={server.interface_file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-[10px] font-bold uppercase hover:bg-blue-100 transition-colors"
+                        >
+                          <FileCode className="w-3 h-3" />
+                          Schema
+                        </a>
+                      )}
+                      {server.wallet_address && (
+                        <div className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-0.5 rounded text-[10px] font-bold uppercase truncate max-w-[150px]" title={server.wallet_address}>
+                          Wallet: {server.wallet_address}
+                        </div>
+                      )}
                       {JSON.parse(server.capabilities).map((cap: string) => (
                         <span key={cap} className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
                           {cap}
@@ -285,13 +399,30 @@ export default function App() {
                       ))}
                     </div>
 
+                    {server.usage_instructions && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 flex items-center gap-1">
+                          <Terminal className="w-3 h-3" />
+                          Usage Instructions
+                        </h4>
+                        <p className="text-xs text-gray-600 font-mono">{server.usage_instructions}</p>
+                      </div>
+                    )}
+
                     {server.ai_review && (
-                      <div className="mt-4 p-3 bg-gray-50 border border-gray-100 rounded-lg text-xs text-gray-600 flex gap-3 items-start">
-                        <Cpu className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                        <p className="italic leading-relaxed">
-                          <span className="font-bold not-italic text-blue-600 mr-1">AI Review:</span>
-                          {server.ai_review}
-                        </p>
+                      <div className="mt-4">
+                        <details className="group">
+                          <summary className="list-none cursor-pointer flex items-center gap-2 text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors">
+                            <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center">
+                              <Bot className="w-3 h-3" />
+                            </div>
+                            <span>View Autonomous AI Audit</span>
+                            <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                          </summary>
+                          <div className="mt-2 p-4 bg-purple-50/50 rounded-xl border border-purple-100 text-sm text-purple-900 italic leading-relaxed">
+                            "{server.ai_review}"
+                          </div>
+                        </details>
                       </div>
                     )}
                   </div>
@@ -448,10 +579,13 @@ export default function App() {
             <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">© 2026 MoltMCP Network</span>
           </div>
           <div className="flex gap-8 text-xs font-bold text-gray-400 uppercase tracking-widest">
+            <a href="/mcp.json" target="_blank" className="hover:text-blue-600 transition-colors flex items-center gap-1">
+              <Bot className="w-3 h-3" />
+              WebMCP Interface
+            </a>
             <a href="#" className="hover:text-blue-600 transition-colors">Privacy</a>
             <a href="#" className="hover:text-blue-600 transition-colors">Terms</a>
             <a href="#" className="hover:text-blue-600 transition-colors">Developers</a>
-            <a href="#" className="hover:text-blue-600 transition-colors">Help</a>
           </div>
         </div>
       </footer>

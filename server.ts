@@ -31,28 +31,44 @@ db.exec(`
     stars INTEGER DEFAULT 0,
     last_checked DATETIME DEFAULT CURRENT_TIMESTAMP,
     ai_review TEXT,
-    verified_by TEXT DEFAULT 'AI' -- 'AI' or 'Human'
+    verified_by TEXT DEFAULT 'AI', -- 'AI' or 'Human'
+    wallet_address TEXT,
+    is_premium INTEGER DEFAULT 0,
+    fee_type TEXT DEFAULT 'free', -- 'free' or 'gas_fee'
+    interface_file TEXT,
+    usage_instructions TEXT
   )
 `);
 
-// Migration: Add verified_by column if it doesn't exist
-try {
-  db.exec("ALTER TABLE mcp_servers ADD COLUMN verified_by TEXT DEFAULT 'AI'");
-} catch (e) {
-  // Column already exists or other error we can ignore for this simple migration
-}
+// Migration: Add new columns if they don't exist
+const migrations = [
+  "ALTER TABLE mcp_servers ADD COLUMN wallet_address TEXT",
+  "ALTER TABLE mcp_servers ADD COLUMN is_premium INTEGER DEFAULT 0",
+  "ALTER TABLE mcp_servers ADD COLUMN fee_type TEXT DEFAULT 'free'",
+  "ALTER TABLE mcp_servers ADD COLUMN verified_by TEXT DEFAULT 'AI'",
+  "ALTER TABLE mcp_servers ADD COLUMN interface_file TEXT",
+  "ALTER TABLE mcp_servers ADD COLUMN usage_instructions TEXT"
+];
+
+migrations.forEach(m => {
+  try {
+    db.exec(m);
+  } catch (e) {
+    // Column already exists
+  }
+});
 
 // Seed initial data if empty
 const count = db.prepare("SELECT COUNT(*) as count FROM mcp_servers").get() as { count: number };
 if (count.count === 0) {
   const seeds = [
-    ["https://mcp.example.com/weather", "WeatherMCP", "Real-time weather data provider", JSON.stringify(["tools"]), "50/day", 4.5, 120, "Human"],
-    ["https://api.molt.site/v1/mcp", "MoltCore", "Advanced reasoning and logic tools", JSON.stringify(["tools", "prompts"]), "Unlimited", 4.9, 850, "Human"],
-    ["https://github.mcp.io", "GitMCP", "GitHub repository management interface", JSON.stringify(["tools", "resources"]), "OAuth based", 4.2, 430, "AI"],
-    ["https://mcp.brave.com", "BraveSearchMCP", "Brave Search API integration for MCP", JSON.stringify(["tools"]), "Free Tier", 4.7, 210, "Human"],
-    ["https://mcp.wolframalpha.com", "WolframMCP", "Computational knowledge engine", JSON.stringify(["tools", "resources"]), "100/mo", 4.8, 340, "AI"]
+    ["https://mcp.example.com/weather", "WeatherMCP", "Real-time weather data provider", JSON.stringify(["tools"]), "50/day", 4.5, 120, "Human", "0x123...abc", 1, "gas_fee", "https://mcp.example.com/weather/openapi.json", "Call GET /current with a city name."],
+    ["https://api.molt.site/v1/mcp", "MoltCore", "Advanced reasoning and logic tools", JSON.stringify(["tools", "prompts"]), "Unlimited", 4.9, 850, "Human", "0x456...def", 1, "gas_fee", "https://api.molt.site/v1/mcp/schema", "Use the 'reason' tool for complex logic."],
+    ["https://github.mcp.io", "GitMCP", "GitHub repository management interface", JSON.stringify(["tools", "resources"]), "OAuth based", 4.2, 430, "AI", null, 0, "free", null, "Standard GitHub API patterns."],
+    ["https://mcp.brave.com", "BraveSearchMCP", "Brave Search API integration for MCP", JSON.stringify(["tools"]), "Free Tier", 4.7, 210, "Human", null, 0, "free", "https://mcp.brave.com/docs", "Search using the 'web_search' tool."],
+    ["https://mcp.wolframalpha.com", "WolframMCP", "Computational knowledge engine", JSON.stringify(["tools", "resources"]), "100/mo", 4.8, 340, "AI", "0x789...ghi", 1, "gas_fee", null, "Query using natural language."]
   ];
-  const stmt = db.prepare("INSERT INTO mcp_servers (url, name, description, capabilities, quota_info, rating, stars, verified_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+  const stmt = db.prepare("INSERT INTO mcp_servers (url, name, description, capabilities, quota_info, rating, stars, verified_by, wallet_address, is_premium, fee_type, interface_file, usage_instructions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
   seeds.forEach(s => stmt.run(...s));
 }
 
@@ -77,27 +93,47 @@ async function startServer() {
   });
 
   app.post("/api/register-mcp", async (req, res) => {
-    const { url } = req.body;
+    const { url, walletAddress, feeType, interfaceFile, usageInstructions } = req.body;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
     try {
       // 1. Initial Insert (Pending AI Review)
       const name = url.split('/')[2] || "New Interface";
+      const isPremium = feeType === 'gas_fee' ? 1 : 0;
+      
       const stmt = db.prepare(`
-        INSERT INTO mcp_servers (url, name, description, capabilities, quota_info, rating, verified_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO mcp_servers (url, name, description, capabilities, quota_info, rating, verified_by, wallet_address, is_premium, fee_type, interface_file, usage_instructions)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(url) DO UPDATE SET last_checked = CURRENT_TIMESTAMP
         RETURNING id
       `);
-      const result = stmt.get(url, name, "Pending AI evaluation...", JSON.stringify([]), "TBD", 0, "AI") as { id: number };
+      const result = stmt.get(
+        url, 
+        name, 
+        "Pending AI evaluation...", 
+        JSON.stringify([]), 
+        "TBD", 
+        0, 
+        "AI", 
+        walletAddress || null, 
+        isPremium, 
+        feeType || 'free',
+        interfaceFile || null,
+        usageInstructions || null
+      ) as { id: number };
       const serverId = result.id;
 
       // 2. Immediate AI Evaluation
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `You are an autonomous MCP auditor. Evaluate this newly registered WebMCP URL: ${url}.
-        If you can't access it, use the URL structure and common patterns to guess its purpose.
+        contents: `You are an autonomous MCP auditor for MoltMCP (a Moltbook-inspired directory). 
+        Evaluate this newly registered WebMCP URL: ${url}.
+        Interface File: ${interfaceFile || 'Not provided'}.
+        Usage Instructions: ${usageInstructions || 'Not provided'}.
+        Business Model: ${feeType === 'gas_fee' ? 'Premium (0.01% gas fee)' : 'Free Tier'}.
+        
+        If you can't access it, use the provided info and URL structure to guess its purpose.
         Provide:
         1. A professional name for the service.
         2. A concise description (max 150 chars).
@@ -154,6 +190,46 @@ async function startServer() {
       console.error(e);
       res.status(500).json({ error: "Failed to fetch servers" });
     }
+  });
+
+  // Self-documenting WebMCP interface for AI agents
+  app.get("/mcp.json", (req, res) => {
+    res.json({
+      mcp_version: "1.0",
+      name: "MoltMCP API",
+      description: "Autonomous directory and search engine for WebMCP interfaces.",
+      capabilities: {
+        tools: [
+          {
+            name: "search_servers",
+            description: "Search for WebMCP servers by query and star count.",
+            parameters: {
+              type: "object",
+              properties: {
+                q: { type: "string", description: "Search query" },
+                minStars: { type: "number", description: "Minimum star count" }
+              }
+            }
+          },
+          {
+            name: "register_server",
+            description: "Register a new WebMCP interface to the directory.",
+            parameters: {
+              type: "object",
+              properties: {
+                url: { type: "string", description: "Documentation URL" },
+                walletAddress: { type: "string", description: "Crypto wallet for fees" },
+                feeType: { type: "string", enum: ["free", "gas_fee"] },
+                interfaceFile: { type: "string", description: "URL to the interface schema (OpenAPI/MCP)" },
+                usageInstructions: { type: "string", description: "Instructions for AI usage" }
+              },
+              required: ["url"]
+            }
+          }
+        ]
+      },
+      instructions: "AI agents should use 'search_servers' to discover tools and 'register_server' to add new ones. All entries are audited by an autonomous AI layer."
+    });
   });
 
   app.post("/api/crawl", async (req, res) => {
