@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const db = new Database("moltmcp.db");
+const db = new Database("moltmcp_site.db");
 
 // Initialize Database
 db.exec(`
@@ -127,7 +127,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `You are an autonomous MCP auditor for MoltMCP (a Moltbook-inspired directory). 
+        contents: `You are an autonomous MCP auditor for MoltMCP.site (a Moltbook-inspired directory). 
         Evaluate this newly registered WebMCP URL: ${url}.
         Interface File: ${interfaceFile || 'Not provided'}.
         Usage Instructions: ${usageInstructions || 'Not provided'}.
@@ -196,7 +196,7 @@ async function startServer() {
   app.get("/mcp.json", (req, res) => {
     res.json({
       mcp_version: "1.0",
-      name: "MoltMCP API",
+      name: "MoltMCP.site API",
       description: "Autonomous directory and search engine for WebMCP interfaces.",
       capabilities: {
         tools: [

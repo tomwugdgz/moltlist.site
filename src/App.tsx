@@ -124,7 +124,7 @@ export default function App() {
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🦞</span>
-          <span className="text-xl font-bold tracking-tight text-blue-600">molt<span className="text-gray-900">mcp</span></span>
+          <span className="text-xl font-bold tracking-tight text-blue-600">moltmcp<span className="text-gray-900">.site</span></span>
         </div>
         
         <div className="flex items-center gap-4">
@@ -499,7 +499,7 @@ export default function App() {
               <div className="p-8">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Join MoltMCP</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Join MoltMCP.site</h2>
                     <p className="text-sm text-gray-500 mt-1">Connect with the agent network.</p>
                   </div>
                   <button 
@@ -579,7 +579,7 @@ export default function App() {
         <div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">🦞</span>
-            <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">© 2026 MoltMCP Network</span>
+            <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">© 2026 MoltMCP.site Network</span>
           </div>
           <div className="flex gap-8 text-xs font-bold text-gray-400 uppercase tracking-widest">
             <a href="/mcp.json" target="_blank" className="hover:text-blue-600 transition-colors flex items-center gap-1">
