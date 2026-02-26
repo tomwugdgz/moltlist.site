@@ -37,6 +37,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [socialHandle, setSocialHandle] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const fetchServers = async (searchQuery = '', stars = minStars, tab = activeTab) => {
     setLoading(true);
@@ -54,6 +55,22 @@ export default function App() {
   useEffect(() => {
     fetchServers(query, minStars, activeTab);
   }, [minStars, activeTab]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
+        return;
+      }
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        setIsRegistered(true);
+        setUserEmail(event.data.email);
+        setTimeout(() => setShowRegister(false), 1500);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +102,20 @@ export default function App() {
       }
     } finally {
       setIsRegistering(false);
+    }
+  };
+
+  const handleSocialLogin = async (provider: 'google' | 'github') => {
+    try {
+      const res = await fetch(`/api/auth/url?provider=${provider}`);
+      const { url } = await res.json();
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      window.open(url, 'oauth_popup', `width=${width},height=${height},left=${left},top=${top}`);
+    } catch (error) {
+      console.error('Social login failed:', error);
     }
   };
 
@@ -124,7 +155,7 @@ export default function App() {
       <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🦞</span>
-          <span className="text-xl font-bold tracking-tight text-blue-600">moltmcp<span className="text-gray-900">.site</span></span>
+          <span className="text-xl font-bold tracking-tight text-blue-600">molt<span className="text-gray-900">list.site</span></span>
         </div>
         
         <div className="flex items-center gap-4">
@@ -499,7 +530,7 @@ export default function App() {
               <div className="p-8">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Join MoltMCP.site</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Join MoltList.site</h2>
                     <p className="text-sm text-gray-500 mt-1">Connect with the agent network.</p>
                   </div>
                   <button 
@@ -520,54 +551,77 @@ export default function App() {
                       <Shield className="w-8 h-8" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900">Welcome Aboard!</h3>
-                    <p className="text-gray-500 mt-2">Your identity has been verified.</p>
+                    <p className="text-gray-500 mt-2">{userEmail ? `Verified as ${userEmail}` : 'Your identity has been verified.'}</p>
                   </motion.div>
                 ) : (
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Email Address</label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input 
-                          required
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="agent@molt.site"
-                          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Social Handle</label>
-                      <div className="relative">
-                        <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input 
-                          required
-                          type="text"
-                          value={socialHandle}
-                          onChange={(e) => setSocialHandle(e.target.value)}
-                          placeholder="@agent_x"
-                          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="pt-4">
-                      <button 
-                        type="submit"
-                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md active:scale-[0.98]"
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => handleSocialLogin('google')}
+                        className="flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl text-sm font-bold hover:bg-gray-50 transition-all"
                       >
-                        Verify Identity
+                        <Mail className="w-4 h-4 text-red-500" />
+                        Google
+                      </button>
+                      <button
+                        onClick={() => handleSocialLogin('github')}
+                        className="flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-xl text-sm font-bold hover:bg-gray-50 transition-all"
+                      >
+                        <Github className="w-4 h-4 text-gray-900" />
+                        GitHub
                       </button>
                     </div>
 
-                    <p className="text-[10px] text-center text-gray-400 px-4 leading-relaxed">
-                      By joining, you agree to our Terms of Service and Privacy Policy. 
-                      Humans and AI agents are treated equally in this network.
-                    </p>
-                  </form>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-100"></div>
+                      </div>
+                      <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest">
+                        <span className="bg-white px-2 text-gray-400">Or continue with email</span>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleRegister} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Email Address</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input 
+                            required
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="agent@molt.site"
+                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Social Handle</label>
+                        <div className="relative">
+                          <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input 
+                            required
+                            type="text"
+                            value={socialHandle}
+                            onChange={(e) => setSocialHandle(e.target.value)}
+                            placeholder="@agent_x"
+                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-4">
+                        <button 
+                          type="submit"
+                          className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md active:scale-[0.98]"
+                        >
+                          Verify Identity
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -579,7 +633,7 @@ export default function App() {
         <div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">🦞</span>
-            <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">© 2026 MoltMCP.site Network</span>
+            <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">© 2026 MoltList.site Network</span>
           </div>
           <div className="flex gap-8 text-xs font-bold text-gray-400 uppercase tracking-widest">
             <a href="/mcp.json" target="_blank" className="hover:text-blue-600 transition-colors flex items-center gap-1">

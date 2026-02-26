@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const db = new Database("moltmcp_site.db");
+const db = new Database("moltlist_site.db");
 
 // Initialize Database
 db.exec(`
@@ -15,9 +15,19 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE,
     social_handle TEXT,
+    provider TEXT,
+    provider_id TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
+
+// Migration: Add OAuth columns to users table if they don't exist
+try {
+  db.exec("ALTER TABLE users ADD COLUMN provider TEXT");
+  db.exec("ALTER TABLE users ADD COLUMN provider_id TEXT");
+} catch (e) {
+  // Columns already exist
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS mcp_servers (
@@ -78,6 +88,120 @@ async function startServer() {
 
   app.use(express.json());
 
+  // OAuth Configuration
+  const getRedirectUri = () => `${process.env.APP_URL}/auth/callback`;
+
+  app.get("/api/auth/url", (req, res) => {
+    const { provider } = req.query;
+    let url = "";
+
+    if (provider === "google") {
+      const params = new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        redirect_uri: getRedirectUri(),
+        response_type: "code",
+        scope: "openid email profile",
+        state: "google",
+      });
+      url = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+    } else if (provider === "github") {
+      const params = new URLSearchParams({
+        client_id: process.env.GITHUB_CLIENT_ID!,
+        redirect_uri: getRedirectUri(),
+        scope: "user:email",
+        state: "github",
+      });
+      url = `https://github.com/login/oauth/authorize?${params}`;
+    }
+
+    res.json({ url });
+  });
+
+  app.get("/auth/callback", async (req, res) => {
+    const { code, state } = req.query;
+    if (!code) return res.status(400).send("Code missing");
+
+    try {
+      let email = "";
+      let socialHandle = "";
+      let providerId = "";
+
+      if (state === "google") {
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            code: code as string,
+            client_id: process.env.GOOGLE_CLIENT_ID!,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+            redirect_uri: getRedirectUri(),
+            grant_type: "authorization_code",
+          }),
+        });
+        const tokens = await tokenRes.json();
+        const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        const profile = await userRes.json();
+        email = profile.email;
+        socialHandle = profile.name;
+        providerId = profile.sub;
+      } else if (state === "github") {
+        const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            client_id: process.env.GITHUB_CLIENT_ID!,
+            client_secret: process.env.GITHUB_CLIENT_SECRET!,
+            code,
+            redirect_uri: getRedirectUri(),
+          }),
+        });
+        const tokens = await tokenRes.json();
+        const userRes = await fetch("https://api.github.com/user", {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        const profile = await userRes.json();
+        
+        const emailsRes = await fetch("https://api.github.com/user/emails", {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        const emails = await emailsRes.json();
+        email = emails.find((e: any) => e.primary)?.email || emails[0]?.email;
+        socialHandle = profile.login;
+        providerId = profile.id.toString();
+      }
+
+      if (email) {
+        const stmt = db.prepare(`
+          INSERT INTO users (email, social_handle, provider, provider_id)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(email) DO UPDATE SET social_handle = excluded.social_handle, provider = excluded.provider, provider_id = excluded.provider_id
+        `);
+        stmt.run(email, socialHandle, state as string, providerId);
+      }
+
+      res.send(`
+        <html>
+          <body>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', email: '${email}' }, '*');
+                window.close();
+              } else {
+                window.location.href = '/';
+              }
+            </script>
+            <p>Authentication successful. This window should close automatically.</p>
+          </body>
+        </html>
+      `);
+    } catch (e) {
+      console.error(e);
+      res.status(500).send("Authentication failed");
+    }
+  });
+
   // API Routes
   app.post("/api/register", (req, res) => {
     const { email, socialHandle } = req.body;
@@ -127,7 +251,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `You are an autonomous MCP auditor for MoltMCP.site (a Moltbook-inspired directory). 
+        contents: `You are an autonomous MCP auditor for MoltList.site (a Moltbook-inspired directory). 
         Evaluate this newly registered WebMCP URL: ${url}.
         Interface File: ${interfaceFile || 'Not provided'}.
         Usage Instructions: ${usageInstructions || 'Not provided'}.
@@ -196,7 +320,7 @@ async function startServer() {
   app.get("/mcp.json", (req, res) => {
     res.json({
       mcp_version: "1.0",
-      name: "MoltMCP.site API",
+      name: "MoltList.site API",
       description: "Autonomous directory and search engine for WebMCP interfaces.",
       capabilities: {
         tools: [
