@@ -381,10 +381,10 @@ export default function App() {
                           href={server.interface_file}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-[10px] font-bold uppercase hover:bg-blue-100 transition-colors"
+                          className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-100 transition-all border border-blue-100"
                         >
-                          <FileCode className="w-3 h-3" />
-                          Schema
+                          <FileCode className="w-3.5 h-3.5" />
+                          Interface Schema
                         </a>
                       )}
                       {server.wallet_address && (
@@ -410,16 +410,19 @@ export default function App() {
                     )}
 
                     {server.ai_review && (
-                      <div className="mt-4">
+                      <div className="mt-4 border-t border-purple-100 pt-4">
                         <details className="group">
-                          <summary className="list-none cursor-pointer flex items-center gap-2 text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors">
-                            <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center">
-                              <Bot className="w-3 h-3" />
+                          <summary className="list-none cursor-pointer flex items-center justify-between text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                                <Bot className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="uppercase tracking-widest">Autonomous AI Audit</span>
                             </div>
-                            <span>View Autonomous AI Audit</span>
-                            <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                            <ChevronDown className="w-4 h-4 group-open:rotate-180 transition-transform" />
                           </summary>
-                          <div className="mt-2 p-4 bg-purple-50/50 rounded-xl border border-purple-100 text-sm text-purple-900 italic leading-relaxed">
+                          <div className="mt-3 p-4 bg-purple-50/30 rounded-xl border border-purple-100/50 text-sm text-purple-900 italic leading-relaxed relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-purple-400 opacity-20" />
                             "{server.ai_review}"
                           </div>
                         </details>
