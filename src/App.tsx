@@ -18,11 +18,12 @@ interface MCPServer {
 
 export default function App() {
   const [query, setQuery] = useState('');
+  const [registerUrl, setRegisterUrl] = useState('');
   const [minStars, setMinStars] = useState(0);
-  const [activeTab, setActiveTab] = useState<'Human' | 'AI'>('Human');
+  const [activeTab, setActiveTab] = useState<'Human' | 'AI'>('AI');
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isCrawling, setIsCrawling] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [socialHandle, setSocialHandle] = useState('');
@@ -50,6 +51,25 @@ export default function App() {
     fetchServers(query, minStars, activeTab);
   };
 
+  const handleRegisterMCP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registerUrl) return;
+    setIsRegistering(true);
+    try {
+      const res = await fetch('/api/register-mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: registerUrl })
+      });
+      if (res.ok) {
+        setRegisterUrl('');
+        fetchServers(query, minStars, activeTab);
+      }
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -64,16 +84,6 @@ export default function App() {
       }
     } catch (error) {
       console.error('Registration failed:', error);
-    }
-  };
-
-  const triggerCrawl = async () => {
-    setIsCrawling(true);
-    try {
-      await fetch('/api/crawl', { method: 'POST' });
-      await fetchServers(query);
-    } finally {
-      setIsCrawling(false);
     }
   };
 
@@ -121,58 +131,82 @@ export default function App() {
             The Front Page of the <span className="text-blue-600">Agent Internet</span>
           </h1>
           <p className="text-lg text-gray-600 leading-relaxed">
-            Discover, evaluate, and upvote WebMCP interfaces. 
-            Where humans and AI agents collaborate to build the future.
+            Register your WebMCP interface documentation. 
+            Our AI autonomously audits and scores every entry to maintain a pollution-free index.
           </p>
         </motion.div>
 
-        <form onSubmit={handleSearch} className="w-full max-w-2xl relative group">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-            <Search className="w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-          </div>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for agents, tools, or capabilities..."
-            className="w-full py-4 pl-12 pr-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-lg"
-          />
-          
-          <div className="mt-6 flex flex-wrap justify-center items-center gap-6">
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setActiveTab('Human')}
-                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'Human' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <User className="w-4 h-4" />
-                Human Verified
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('AI')}
-                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'AI' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <Bot className="w-4 h-4" />
-                AI Autonomous
-              </button>
+        <div className="w-full max-w-3xl space-y-6">
+          {/* Registration Form */}
+          <form onSubmit={handleRegisterMCP} className="relative group">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Zap className="w-5 h-5 text-blue-500" />
             </div>
+            <input
+              type="url"
+              value={registerUrl}
+              onChange={(e) => setRegisterUrl(e.target.value)}
+              placeholder="Register your MCP URL (e.g., https://api.example.com/mcp)..."
+              className="w-full py-4 pl-12 pr-32 bg-white border border-blue-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-lg"
+            />
+            <button 
+              type="submit"
+              disabled={isRegistering}
+              className="absolute right-2 top-2 bottom-2 px-6 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all disabled:bg-gray-400 flex items-center gap-2"
+            >
+              {isRegistering ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Register'}
+            </button>
+          </form>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Min Stars:</span>
-              <select 
-                value={minStars}
-                onChange={(e) => setMinStars(Number(e.target.value))}
-                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-              >
-                <option value={0}>All</option>
-                <option value={100}>100+</option>
-                <option value={300}>300+</option>
-                <option value={500}>500+</option>
-              </select>
+          {/* Search Form */}
+          <form onSubmit={handleSearch} className="relative group">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
             </div>
-          </div>
-        </form>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search indexed agents..."
+              className="w-full py-3 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all text-base"
+            />
+            
+            <div className="mt-6 flex flex-wrap justify-center items-center gap-6">
+              <div className="flex bg-gray-100 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('AI')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'AI' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Bot className="w-4 h-4" />
+                  AI Audited
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('Human')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'Human' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <User className="w-4 h-4" />
+                  Human Verified
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Min Stars:</span>
+                <select 
+                  value={minStars}
+                  onChange={(e) => setMinStars(Number(e.target.value))}
+                  className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+                  <option value={0}>All</option>
+                  <option value={100}>100+</option>
+                  <option value={300}>300+</option>
+                  <option value={500}>500+</option>
+                </select>
+              </div>
+            </div>
+          </form>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -181,14 +215,13 @@ export default function App() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
               {activeTab === 'Human' ? <User className="w-5 h-5 text-blue-500" /> : <Bot className="w-5 h-5 text-purple-500" />}
-              {activeTab === 'Human' ? 'Curated by Humans' : 'Discovered by Agents'}
+              {activeTab === 'Human' ? 'Curated by Humans' : 'AI Autonomous Audit'}
             </h2>
             <button 
-              onClick={triggerCrawl}
-              disabled={isCrawling}
+              onClick={() => fetchServers(query, minStars, activeTab)}
               className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 uppercase tracking-wider"
             >
-              {isCrawling ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
               Refresh Feed
             </button>
           </div>
@@ -278,12 +311,7 @@ export default function App() {
           {!loading && servers.length === 0 && (
             <div className="text-center py-20 bg-white border border-dashed border-gray-300 rounded-xl">
               <p className="text-gray-500 font-medium">No agents found in this sector.</p>
-              <button 
-                onClick={triggerCrawl}
-                className="mt-4 text-blue-600 hover:text-blue-700 font-bold text-sm uppercase tracking-wider"
-              >
-                Deploy Discovery Drones
-              </button>
+              <p className="mt-2 text-xs text-gray-400">Register a new URL above to expand the network.</p>
             </div>
           )}
         </div>

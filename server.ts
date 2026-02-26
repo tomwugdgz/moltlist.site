@@ -76,6 +76,61 @@ async function startServer() {
     }
   });
 
+  app.post("/api/register-mcp", async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: "URL is required" });
+
+    try {
+      // 1. Initial Insert (Pending AI Review)
+      const name = url.split('/')[2] || "New Interface";
+      const stmt = db.prepare(`
+        INSERT INTO mcp_servers (url, name, description, capabilities, quota_info, rating, verified_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(url) DO UPDATE SET last_checked = CURRENT_TIMESTAMP
+        RETURNING id
+      `);
+      const result = stmt.get(url, name, "Pending AI evaluation...", JSON.stringify([]), "TBD", 0, "AI") as { id: number };
+      const serverId = result.id;
+
+      // 2. Immediate AI Evaluation
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `You are an autonomous MCP auditor. Evaluate this newly registered WebMCP URL: ${url}.
+        If you can't access it, use the URL structure and common patterns to guess its purpose.
+        Provide:
+        1. A professional name for the service.
+        2. A concise description (max 150 chars).
+        3. Capabilities (array of strings like "tools", "resources", "prompts").
+        4. A utility rating (1.0 to 5.0) - be strict, reject "pollution" (low quality).
+        5. A short AI audit note.
+        
+        Format as JSON: { "name": "...", "description": "...", "capabilities": [...], "rating": 4.2, "audit": "..." }`,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const aiResult = JSON.parse(response.text || "{}");
+      
+      db.prepare(`
+        UPDATE mcp_servers 
+        SET name = ?, description = ?, capabilities = ?, rating = ?, ai_review = ?, last_checked = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        aiResult.name || name,
+        aiResult.description || "No description provided.",
+        JSON.stringify(aiResult.capabilities || []),
+        aiResult.rating || 0,
+        aiResult.audit || "Audit complete.",
+        serverId
+      );
+
+      res.json({ success: true, serverId, rating: aiResult.rating });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Autonomous registration failed" });
+    }
+  });
+
   app.get("/api/servers", (req, res) => {
     try {
       const q = req.query.q as string || "";
@@ -144,13 +199,13 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Evaluate this WebMCP server:
+        contents: `Audit this WebMCP server:
         Name: ${server.name}
         URL: ${server.url}
         Description: ${server.description}
         Capabilities: ${server.capabilities}
         
-        Provide a concise AI review (max 200 chars) and a new rating from 1-5 based on its perceived utility and reliability. 
+        Provide a concise AI review (max 200 chars) and a new rating from 1-5. Be critical.
         Format as JSON: { "review": "...", "rating": 4.5 }`,
         config: { responseMimeType: "application/json" }
       });
