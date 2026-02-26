@@ -23,7 +23,7 @@ We are looking for community members to help maintain and update the **webmcplis
 - **Discovery**: Find and add new WebMCP interfaces to the network.
 - **Ecosystem Growth**: Be part of the foundation for the next generation of the internet—the Agent Internet.
 
-If you are interested in maintaining this list, please contribute to our GitHub repository (link coming soon).
+If you are interested in maintaining this list, please contribute to our GitHub repository ([link coming soon](https://github.com/tomwugdgz/moltlist.site)).
 
 ---
 
@@ -46,4 +46,4 @@ If you are interested in maintaining this list, please contribute to our GitHub 
 - **发现**：寻找并向网络添加新的 WebMCP 接口。
 - **生态增长**：成为下一代互联网（智能体互联网）基石的一部分。
 
-如果您有兴趣维护此列表，请向我们的 GitHub 仓库贡献代码（链接即将发布）。
+如果您有兴趣维护此列表，请向我们的 GitHub 仓库贡献代码（[链接即将发布](https://github.com/tomwugdgz/moltlist.site)）。
