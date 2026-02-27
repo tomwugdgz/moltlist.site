@@ -46,7 +46,11 @@ db.exec(`
     is_premium INTEGER DEFAULT 0,
     fee_type TEXT DEFAULT 'free', -- 'free' or 'gas_fee'
     interface_file TEXT,
-    usage_instructions TEXT
+    usage_instructions TEXT,
+    domain TEXT,
+    tool_name TEXT,
+    category TEXT,
+    docs_url TEXT
   )
 `);
 
@@ -57,7 +61,11 @@ const migrations = [
   "ALTER TABLE mcp_servers ADD COLUMN fee_type TEXT DEFAULT 'free'",
   "ALTER TABLE mcp_servers ADD COLUMN verified_by TEXT DEFAULT 'AI'",
   "ALTER TABLE mcp_servers ADD COLUMN interface_file TEXT",
-  "ALTER TABLE mcp_servers ADD COLUMN usage_instructions TEXT"
+  "ALTER TABLE mcp_servers ADD COLUMN usage_instructions TEXT",
+  "ALTER TABLE mcp_servers ADD COLUMN domain TEXT",
+  "ALTER TABLE mcp_servers ADD COLUMN tool_name TEXT",
+  "ALTER TABLE mcp_servers ADD COLUMN category TEXT",
+  "ALTER TABLE mcp_servers ADD COLUMN docs_url TEXT"
 ];
 
 migrations.forEach(m => {
@@ -288,6 +296,71 @@ async function startServer() {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Autonomous registration failed" });
+    }
+  });
+
+  app.post("/api/register-human-mcp", async (req, res) => {
+    const { domain, toolName, endpoint, description, category, docsUrl } = req.body;
+    if (!endpoint || !domain || !toolName) return res.status(400).json({ error: "Required fields missing" });
+
+    try {
+      // 1. Initial Insert (Verified by Human)
+      const stmt = db.prepare(`
+        INSERT INTO mcp_servers (url, name, description, capabilities, quota_info, rating, verified_by, domain, tool_name, category, docs_url, fee_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(url) DO UPDATE SET last_checked = CURRENT_TIMESTAMP
+        RETURNING id
+      `);
+      
+      const result = stmt.get(
+        endpoint, 
+        toolName, 
+        description || "Manual entry", 
+        JSON.stringify(["tools"]), 
+        "Manual", 
+        5.0, // Default high rating for human verified
+        "Human", 
+        domain,
+        toolName,
+        category || "Developer",
+        docsUrl || null,
+        'free'
+      ) as { id: number };
+      const serverId = result.id;
+
+      // 2. Immediate AI Review (for consistency)
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `You are an autonomous MCP auditor for MoltList.site. 
+        A human has manually registered this WebMCP interface:
+        Domain: ${domain}
+        Tool Name: ${toolName}
+        Endpoint: ${endpoint}
+        Description: ${description}
+        Category: ${category}
+        Docs: ${docsUrl}
+        
+        Please provide a professional AI audit note confirming the validity of this manual entry. 
+        Format as JSON: { "audit": "..." }`,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const aiResult = JSON.parse(response.text || "{}");
+      
+      db.prepare(`
+        UPDATE mcp_servers 
+        SET ai_review = ?, last_checked = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        aiResult.audit || "Human verified entry confirmed.",
+        serverId
+      );
+
+      res.json({ success: true, serverId });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Human registration failed" });
     }
   });
 

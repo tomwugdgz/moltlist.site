@@ -19,6 +19,10 @@ interface MCPServer {
   fee_type: 'free' | 'gas_fee';
   interface_file?: string;
   usage_instructions?: string;
+  domain?: string;
+  tool_name?: string;
+  category?: string;
+  docs_url?: string;
 }
 
 export default function App() {
@@ -38,6 +42,16 @@ export default function App() {
   const [socialHandle, setSocialHandle] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Human Verified Registration State
+  const [showHumanRegister, setShowHumanRegister] = useState(false);
+  const [humanDomain, setHumanDomain] = useState('');
+  const [humanToolName, setHumanToolName] = useState('');
+  const [humanEndpoint, setHumanEndpoint] = useState('');
+  const [humanDescription, setHumanDescription] = useState('');
+  const [humanCategory, setHumanCategory] = useState('Developer');
+  const [humanDocsUrl, setHumanDocsUrl] = useState('');
+  const [isHumanRegistering, setIsHumanRegistering] = useState(false);
 
   const fetchServers = async (searchQuery = '', stars = minStars, tab = activeTab) => {
     setLoading(true);
@@ -75,6 +89,40 @@ export default function App() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchServers(query, minStars, activeTab);
+  };
+
+  const handleHumanRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!humanEndpoint || !humanDomain || !humanToolName) return;
+    setIsHumanRegistering(true);
+    try {
+      const res = await fetch('/api/register-human-mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          domain: humanDomain,
+          toolName: humanToolName,
+          endpoint: humanEndpoint,
+          description: humanDescription,
+          category: humanCategory,
+          docsUrl: humanDocsUrl
+        })
+      });
+      if (res.ok) {
+        setHumanDomain('');
+        setHumanToolName('');
+        setHumanEndpoint('');
+        setHumanDescription('');
+        setHumanCategory('Developer');
+        setHumanDocsUrl('');
+        setShowHumanRegister(false);
+        fetchServers(query, minStars, 'Human');
+      }
+    } catch (error) {
+      console.error('Human registration failed:', error);
+    } finally {
+      setIsHumanRegistering(false);
+    }
   };
 
   const handleRegisterMCP = async (e: React.FormEvent) => {
@@ -332,13 +380,24 @@ export default function App() {
               {activeTab === 'Human' ? <User className="w-5 h-5 text-blue-500" /> : <Bot className="w-5 h-5 text-purple-500" />}
               {activeTab === 'Human' ? 'Curated by Humans' : 'AI Autonomous Audit'}
             </h2>
-            <button 
-              onClick={() => fetchServers(query, minStars, activeTab)}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 uppercase tracking-wider"
-            >
-              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-              Refresh Feed
-            </button>
+            <div className="flex items-center gap-4">
+              {activeTab === 'Human' && (
+                <button 
+                  onClick={() => setShowHumanRegister(true)}
+                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-sm"
+                >
+                  <Terminal className="w-3.5 h-3.5" />
+                  Register Interface
+                </button>
+              )}
+              <button 
+                onClick={() => fetchServers(query, minStars, activeTab)}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 uppercase tracking-wider"
+              >
+                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                Refresh Feed
+              </button>
+            </div>
           </div>
 
           <AnimatePresence mode="popLayout">
@@ -623,6 +682,136 @@ export default function App() {
                     </form>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Human Registration Modal */}
+      <AnimatePresence>
+        {showHumanRegister && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHumanRegister(false)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Register Interface</h2>
+                    <p className="text-sm text-blue-600 font-medium mt-1">AI reviews within seconds. No human gatekeeping.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowHumanRegister(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleHumanRegister} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Domain *</label>
+                      <input 
+                        required
+                        type="text"
+                        value={humanDomain}
+                        onChange={(e) => setHumanDomain(e.target.value)}
+                        placeholder="yoursite.com"
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Tool Name *</label>
+                      <input 
+                        required
+                        type="text"
+                        value={humanToolName}
+                        onChange={(e) => setHumanToolName(e.target.value)}
+                        placeholder="searchProducts"
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">WebMCP Endpoint *</label>
+                    <input 
+                      required
+                      type="url"
+                      value={humanEndpoint}
+                      onChange={(e) => setHumanEndpoint(e.target.value)}
+                      placeholder="https://yoursite.com/.well-known/webmcp"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Description *</label>
+                    <textarea 
+                      required
+                      value={humanDescription}
+                      onChange={(e) => setHumanDescription(e.target.value)}
+                      placeholder="What does this tool do? Be precise — AI will score your clarity."
+                      rows={3}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Category</label>
+                      <select 
+                        value={humanCategory}
+                        onChange={(e) => setHumanCategory(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      >
+                        <option>Developer</option>
+                        <option>Finance</option>
+                        <option>Social</option>
+                        <option>Utilities</option>
+                        <option>Creative</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Docs URL</label>
+                      <input 
+                        type="url"
+                        value={humanDocsUrl}
+                        onChange={(e) => setHumanDocsUrl(e.target.value)}
+                        placeholder="https://docs.yoursite.com"
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p className="text-[11px] text-blue-700 leading-relaxed font-medium">
+                      AI will automatically fetch, test, and score your endpoint. Spam, affiliate links, or misleading descriptions are rejected. Scoring takes ~10 seconds.
+                    </p>
+                  </div>
+
+                  <div className="pt-4">
+                    <button 
+                      type="submit"
+                      disabled={isHumanRegistering}
+                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-md active:scale-[0.98] disabled:bg-gray-400 flex items-center justify-center gap-2"
+                    >
+                      {isHumanRegistering ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Register Interface'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </motion.div>
           </div>
