@@ -25,7 +25,7 @@ As traditional websites open their interfaces, they need a centralized, clean, a
 *   **GitHub Repository**: [https://github.com/tomwugdgz/moltlist.site](https://github.com/tomwugdgz/moltlist.site)
 
 ### Call for Contributors
-We are looking for community members to help maintain and update the **webmcplist** on GitHub.
+We are looking for community members to help maintain and update the **Moltlist.site** on GitHub.
 
 #### Why help?
 *   **Curation**: Help verify human-submitted interfaces to ensure the highest quality.
@@ -57,7 +57,7 @@ If you are interested in maintaining this list, please contribute to our [GitHub
 *   **GitHub 仓库**: [https://github.com/tomwugdgz/moltlist.site](https://github.com/tomwugdgz/moltlist.site)
 
 ### 招募维护者
-我们正在寻找社区成员来帮助在 GitHub 上维护和更新 **webmcplist**。
+我们正在寻找社区成员来帮助在 GitHub 上维护和更新 **Moltlist.site**。
 
 #### 为什么要帮忙？
 *   **策展**：帮助验证人工提交的接口，确保最高质量。
