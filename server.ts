@@ -429,6 +429,69 @@ async function startServer() {
     });
   });
 
+  app.post("/api/discover", async (req, res) => {
+    const { query: userQuery } = req.body;
+    const searchQuery = userQuery || "latest WebMCP interfaces and Model Context Protocol servers 2025 2026";
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Find 3-5 active WebMCP (Model Context Protocol) interface URLs or documentation pages related to: ${searchQuery}. 
+        Return them as a JSON array of objects with 'url', 'name', and 'description'. 
+        Focus on real, accessible endpoints.`,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                url: { type: "STRING" },
+                name: { type: "STRING" },
+                description: { type: "STRING" }
+              },
+              required: ["url", "name", "description"]
+            }
+          }
+        },
+      });
+
+      const discovered = JSON.parse(response.text || "[]");
+      const results = [];
+
+      for (const item of discovered) {
+        try {
+          const stmt = db.prepare(`
+            INSERT INTO mcp_servers (url, name, description, capabilities, quota_info, rating, stars, verified_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(url) DO UPDATE SET last_checked = CURRENT_TIMESTAMP
+            RETURNING id
+          `);
+          const res = stmt.get(
+            item.url,
+            item.name,
+            item.description,
+            JSON.stringify(["tools"]),
+            "Discovered",
+            4.0,
+            Math.floor(Math.random() * 100),
+            "AI"
+          ) as { id: number };
+          results.push({ ...item, id: res.id });
+        } catch (e) {
+          console.error("Failed to save discovered item:", e);
+        }
+      }
+
+      res.json({ success: true, discovered: results });
+    } catch (e) {
+      console.error("Discovery failed:", e);
+      res.status(500).json({ error: "AI Discovery failed" });
+    }
+  });
+
   app.post("/api/crawl", async (req, res) => {
     // In a real app, this would crawl the web. 
     // For this demo, we'll simulate discovery of a new server.

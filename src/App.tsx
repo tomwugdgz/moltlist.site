@@ -52,6 +52,7 @@ export default function App() {
   const [humanCategory, setHumanCategory] = useState('Developer');
   const [humanDocsUrl, setHumanDocsUrl] = useState('');
   const [isHumanRegistering, setIsHumanRegistering] = useState(false);
+  const [isDiscovering, setIsDiscovering] = useState(false);
 
   const fetchServers = async (searchQuery = '', stars = minStars, tab = activeTab) => {
     setLoading(true);
@@ -85,6 +86,12 @@ export default function App() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  const truncateAddress = (address: string) => {
+    if (!address) return '';
+    if (address.length <= 12) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +157,24 @@ export default function App() {
       }
     } finally {
       setIsRegistering(false);
+    }
+  };
+
+  const handleDiscover = async () => {
+    setIsDiscovering(true);
+    try {
+      const res = await fetch('/api/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      if (res.ok) {
+        fetchServers(query, minStars, activeTab);
+      }
+    } catch (error) {
+      console.error('Discovery failed:', error);
+    } finally {
+      setIsDiscovering(false);
     }
   };
 
@@ -323,16 +348,28 @@ export default function App() {
 
           {/* Search Form */}
           <form onSubmit={handleSearch} className="relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-              <Search className="w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+            <div className="relative flex items-center">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <Search className="w-5 h-5 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+              </div>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search indexed agents..."
+                className="w-full py-3.5 pl-12 pr-32 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-base"
+              />
+              <button
+                type="button"
+                onClick={handleDiscover}
+                disabled={isDiscovering}
+                className="absolute right-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition-all flex items-center gap-2 shadow-sm disabled:bg-gray-400"
+                title="AI Discovery (Search Web for MCPs)"
+              >
+                {isDiscovering ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">AI Search</span>
+              </button>
             </div>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search indexed agents..."
-              className="w-full py-3.5 pl-12 pr-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-base"
-            />
             
             <div className="mt-6 flex flex-wrap justify-center items-center gap-6">
               <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -478,8 +515,11 @@ export default function App() {
                         </a>
                       )}
                       {server.wallet_address && (
-                        <div className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-0.5 rounded text-[10px] font-bold uppercase truncate max-w-[150px]" title={server.wallet_address}>
-                          Wallet: {server.wallet_address}
+                        <div 
+                          className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-0.5 rounded text-[10px] font-bold uppercase cursor-help" 
+                          title={server.wallet_address}
+                        >
+                          Wallet: {truncateAddress(server.wallet_address)}
                         </div>
                       )}
                       {JSON.parse(server.capabilities).map((cap: string) => (
