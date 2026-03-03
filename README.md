@@ -148,7 +148,74 @@ OAuth 用户认证、加密货币支付、Redis 缓存、监控系统等。
 高可信度、无垃圾接口目录
 WebMCP 生态基础设施
 
-本系统现已功能完整，可立即为 AI Agent 提供可信接口调用环境。
+
+**WebMCP协议（Web Model Context Protocol）技术细节**
+
+**定义**  
+WebMCP 是 W3C Web Machine Learning 社区组孵化的浏览器原生 JavaScript API 提案（2026 年早期预览，由 Google Chrome 146 Canary 实现）。它是 Model Context Protocol (MCP) 的浏览器端扩展，使网页可作为 MCP 服务器，在客户端 JavaScript 中暴露结构化工具（tools）、提示（prompts）和资源（resources），供 AI 代理直接调用。  
+核心目标：取代 DOM 抓取/截图猜测，实现结构化函数调用，支持 human-in-the-loop 工作流。
+
+**与基础 MCP 的关系**  
+- 基础 MCP（Anthropic 2024 开源）：JSON-RPC 协议，AI 客户端连接后端 MCP 服务器（stdio/SSE 传输）。  
+- WebMCP：客户端实现，网页即 MCP 服务器，使用浏览器内通信（tab transport / extension transport），复用前端逻辑，无需单独后端。
+
+**核心 API**  
+浏览器暴露 `navigator.modelContext`（安全上下文 HTTPS 下）。  
+Polyfill 库（webmcp.js）提供 `new WebMCP(options)` 兼容实现。
+
+**注册方法**  
+1. **registerTool**（核心工具注册）  
+   ```javascript
+   mcp.registerTool(name, description, parameters, fn)
+   ```  
+   - `name`: string（工具标识，如 'weather'）  
+   - `description`: string（自然语言描述）  
+   - `parameters`: JSON Schema 对象（输入参数）  
+   - `fn(args)`: function，返回 `{ content: [{ type: "text", text: string }] }`  
+
+   示例：  
+   ```javascript
+   mcp.registerTool(
+     'weather',
+     'Get weather information',
+     { location: { type: "string" } },
+     function(args) {
+       return { content: [{ type: "text", text: `Weather for ${args.location}: Sunny, 22°C` }] };
+     }
+   );
+   ```
+
+2. **registerPrompt**  
+   返回预定义消息模板：`{ messages: [{ role: "user", content: { type: "text", text: string } }] }`。
+
+3. **registerResource**  
+   注册 URI 资源（静态或模板），返回 `{ contents: [{ uri, mimeType, text }] }`。
+
+**工具发现与调用**  
+- AI 代理通过 MCP 客户端发现注册工具。  
+- 调用时传入符合 JSON Schema 的参数，执行结果实时更新页面 UI（用户可见、可干预）。  
+- 支持 JSDoc 风格注释自动提取描述（原生 navigator.modelContext.registerTool(toolFunction)）。
+
+**输入/输出格式**  
+- 参数：JSON Schema（OpenAPI 兼容）。  
+- 返回：MCP 标准 content/messages/contents 结构。  
+- MIME 类型：text/html、text/plain 等。
+
+**安全与权限**  
+- 用户必须显式授权（浏览器提示）。  
+- 工具仅在当前标签页上下文执行。  
+- 风险缓解：跨源隔离、权限范围控制、数据流可见性。
+
+**集成步骤（精确执行）**  
+1. `<script src="webmcp.js"></script>` 或原生 Chrome 支持。  
+2. 页面加载后立即调用 register* 方法。  
+3. MCP 客户端（Claude Desktop 等）生成 token 连接。  
+4. 重启客户端使工具可见。
+
+**MoltList.site 兼容性**  
+支持 OpenAPI/MCP schema 提交，AI 审核验证 navigator.modelContext 注册完整性。  
+
+所有细节基于 2026 年 2 月官方来源（webmcp.dev、W3C 提案、Chrome 文档）可验证。执行完毕。
 
 **WebMCP协议（Web Model Context Protocol）技术细节**
 
